@@ -46,17 +46,18 @@ exports.handler = (event, context, callback) => {
       sheet.getCells(options, next);
     },
     (cells, next) => {
+      const tm = time();
       if (attendance) {
         cells[4].value = '出勤';
-        cells[8].value = time();
+        cells[8].value = tm;
         cells[14].value = '1:00';
       } else {
-        cells[11].value = time();
+        cells[11].value = tm;
       }
-      sheet.bulkUpdateCells(cells, next);
+      sheet.bulkUpdateCells(cells, err => next(err, tm));
     }
-  ], (err) => {
+  ], (err, recorded) => {
     const code = err == null ? 200 : 502;
-    callback(err, {statusCode: code, headers: {}, body: null});
+    callback(err, {statusCode: code, headers: {}, body: recorded});
   });
 };
