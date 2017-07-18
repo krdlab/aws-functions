@@ -6,6 +6,17 @@
 
 #include <ESP8266WiFi.h>
 #include <WiFiClientSecure.h>
+#include <SPI.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+
+#define OLED_RESET 4
+Adafruit_SSD1306 display(OLED_RESET);
+
+#if (SSD1306_LCDHEIGHT != 64)
+#error("Height incorrect, please fix Adafruit_SSD1306.h!");
+#endif
 
 const char* SSID = "";
 const char* PASSWORD = "";
@@ -18,6 +29,12 @@ const int BUTTON = 14;
 
 void setup() {
   Serial.begin(115200);
+
+  Wire.begin(0, 2);
+  display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
+  display.clearDisplay();
+  display.display();
+
   Serial.println();
 
   WiFi.begin(SSID, PASSWORD);
@@ -32,18 +49,39 @@ void setup() {
   pinMode(BUTTON, INPUT);
 }
 
+unsigned long startDisplayTime = 0;
+
 void loop() {
   const int state1 = digitalRead(BUTTON);
   if (state1 == HIGH) {
     delay(200);
     const int state2 = checkSecondaryClick(BUTTON, 500);
     if (state2 == HIGH) {
-      post("/2");
+      const String res = post("/2");
+      show("taikin", res);
     } else {
-      post("/1");
+      const String res = post("/1");
+      show("shukkin", res);
     }
     delay(200);
   }
+  if (startDisplayTime > 0 && startDisplayTime + 3000 < millis()) {
+    display.clearDisplay();
+    display.display();
+    startDisplayTime = 0;
+  }
+}
+
+void show(const char* text, const String tm) {
+  display.clearDisplay();
+  display.setTextColor(WHITE);
+  display.setTextSize(2);
+  display.setCursor(0, 0);
+  display.println();
+  display.println(text);
+  display.println(tm);
+  display.display();
+  startDisplayTime = millis();
 }
 
 int checkSecondaryClick(const int pin, const unsigned long waitMills) {
@@ -56,11 +94,11 @@ int checkSecondaryClick(const int pin, const unsigned long waitMills) {
   return state;
 }
 
-void post(const char* path) {
+String post(const char* path) {
   WiFiClientSecure client;
   if (!client.connect(HOST, 443)) {
     Serial.println("failed to connect to host.");
-    return;
+    return "";
   }
   if (!client.verify(FINGERPRINT, HOST)) {
     Serial.println("failed to verify fingerprint.");
@@ -74,13 +112,17 @@ void post(const char* path) {
               + "\r\n");
   Serial.println("POST");
 
+  String content = "";
   while (client.connected()) {
     const String line = client.readStringUntil('\n');
     Serial.println(line);
     if (line == "\r") {
+      content = client.readStringUntil('\n');
       break;
     }
   }
   Serial.println();
+  Serial.println(content);
   Serial.println("done.");
+  return content;
 }
