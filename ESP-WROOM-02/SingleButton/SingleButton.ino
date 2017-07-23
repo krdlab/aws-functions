@@ -58,10 +58,10 @@ void loop() {
     const int state2 = checkSecondaryClick(BUTTON, 500);
     if (state2 == HIGH) {
       const String res = post("/2");
-      show("taikin", res);
+      show("func 2", res);
     } else {
       const String res = post("/1");
-      show("shukkin", res);
+      show("func 1", res);
     }
     delay(200);
   }
